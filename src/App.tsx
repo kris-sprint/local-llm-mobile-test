@@ -50,18 +50,37 @@ function App() {
         content: "Loading model... (this might take a bit)",
       },
     ]);
-    const engine: webllm.EngineInterface = await webllm.CreateWebWorkerEngine(
-      new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
-      selectedModel,
-      /*engineConfig=*/ {
-        initProgressCallback: initProgressCallback,
-        appConfig: appConfig,
-      }
-    );
-    setEngine(engine);
-    return engine;
-  }
 
+    try {
+      const engine: webllm.EngineInterface = await webllm.CreateWebWorkerEngine(
+        new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
+        selectedModel,
+        /*engineConfig=*/ {
+          initProgressCallback: initProgressCallback,
+          appConfig: appConfig,
+        }
+      );
+      setEngine(engine);
+      return engine;
+    } catch (e) {
+      if (e.message.includes("WebGPU is not supported")) {
+        console.log("WebGPU not supported, falling back to CPU-only mode");
+        const engine: webllm.EngineInterface = await webllm.CreateWebWorkerEngine(
+          new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
+          selectedModel,
+          /*engineConfig=*/ {
+            initProgressCallback: initProgressCallback,
+            appConfig: { ...appConfig, useWebGPU: false },
+          }
+        );
+        setEngine(engine);
+        return engine;
+      } else {
+        throw e;
+      }
+    }
+  }
+  
   async function onSend() {
     setIsGenerating(true);
 
